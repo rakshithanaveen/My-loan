@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Loan - Loader</title>
+  <meta name="robots" content="noindex" />
+  <style>
+    html,body{height:100%;margin:0}
+    .loader{height:100%;display:flex;align-items:center;justify-content:center;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  </style>
+</head>
+<body>
+  <div class="loader">Loading app… If you are not redirected, <a href="/mobile.html">open the app</a>.</div>
+
+  <script>
+    // Fetch mobile.html, inject storage.js automatically, and render it as the app.
+    (async function(){
+      try {
+        const r = await fetch('/mobile.html', { cache: 'no-cache' });
+        if (!r.ok) { console.error('Failed to fetch mobile.html', r.status); return; }
+        let html = await r.text();
+        // Inject storage.js before the closing </body> tag. If body missing, append at end.
+        if (/<\/body>/i.test(html)) {
+          html = html.replace(/<\/body>/i, '\n<script src="/storage.js"></script>\n</body>');
+        } else {
+          html += '\n<script src="/storage.js"></script>';
+        }
+        // Write the fetched HTML into the document so the app runs at /
+        document.open();
+        document.write(html);
+        document.close();
+      } catch (e) {
+        console.error('Loader error', e);
+      }
+    })();
+  </script>
+</body>
+</html>
