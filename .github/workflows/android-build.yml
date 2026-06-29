@@ -1,0 +1,34 @@
+name: Build Android APK
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Initialize Open Source Mobile Shell
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+          npx cap init "Loan Manager" "com.naveen.loanmanager" --web-dir=. --confirm
+          npx cap add android
+
+      - name: Sync Live Website Code
+        run: npx cap sync
+
+      - name: Compile Native App Package
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload APK File
+        uses: actions/upload-artifact@v3
+        with:
+          name: LoanManager-App
+          path: android/app/build/outputs/apk/debug/app-debug.apk
