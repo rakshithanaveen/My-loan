@@ -1399,7 +1399,6 @@
             database.ref('loanManagerDB').on('value', (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
-                    const data = snapshot.val();
                     DB.users = data.users || {};
                     DB.loans = data.loans || {};
                 }
@@ -2326,19 +2325,19 @@
             }
 
             saveDatabase();[cite: 1]
-            alert(`¼ Profile for user "${username}" was modified successfully!`);[cite: 1]
+            alert(`Profile for user "${username}" was modified successfully!`);[cite: 1]
             closeAdminEditModal();[cite: 1]
             renderAdminUsersList();[cite: 1]
         }
 
         function processAdminUserDelete(username) {
-            if (confirm(`ß Critical Action: Are you entirely sure you want to completely delete the profile for "${username}"? This action will purge all their loan listings.`)) {[cite: 1]
+            if (confirm(`Critical Action: Are you entirely sure you want to completely delete the profile for "${username}"? This action will purge all their loan listings.`)) {[cite: 1]
                 delete DB.users[username];[cite: 1]
                 if (DB.loans[username]) {[cite: 1]
                     delete DB.loans[username];[cite: 1]
                 }
                 saveDatabase();[cite: 1]
-                alert(`¼ Dropped database entry logs for workspace user reference: "${username}".`);[cite: 1]
+                alert(`Dropped database entry logs for workspace user reference: "${username}".`);[cite: 1]
                 renderAdminUsersList();[cite: 1]
             }
         }
@@ -2373,7 +2372,7 @@
             document.getElementById('mainContainer').classList.add('active');[cite: 1]
             document.getElementById('userDisplay').textContent = currentUser;[cite: 1]
             
-            if (currentUser === 'Naveen@admin') {[cite: 1]
+            if (currentUser === 'Naveen@admin') {
                 document.getElementById('adminTabBtn').style.display = 'block';[cite: 1]
                 document.getElementById('createTabBtn').style.display = 'none';[cite: 1]
                 document.getElementById('infoTabBtn').style.display = 'none';[cite: 1]
