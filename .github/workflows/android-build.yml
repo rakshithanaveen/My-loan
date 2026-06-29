@@ -5,30 +5,45 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      - name: Checkout Source Repository
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Set up Java Environment
+        uses: actions/setup-java@v4
         with:
-          node-version: 18
+          distribution: 'zulu'
+          java-version: '17'
 
-      - name: Initialize Open Source Mobile Shell
+      - name: Set up Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Create package.json stub if missing
+        run: |
+          if [ ! -f package.json ]; then
+            echo '{"name": "loan-manager-app", "version": "1.0.0", "dependencies": {}}' > package.json
+          fi
+
+      - name: Install Open Source Mobile Tooling
         run: |
           npm install @capacitor/core @capacitor/cli @capacitor/android
+
+      - name: Initialize App Framework Layout
+        run: |
           npx cap init "Loan Manager" "com.naveen.loanmanager" --web-dir=. --confirm
           npx cap add android
 
-      - name: Sync Live Website Code
-        run: npx cap sync
+      - name: Sync App Views to Native Container
+        run: npx cap sync android
 
-      - name: Compile Native App Package
+      - name: Compile Standalone Installer (APK)
         run: |
           cd android
           ./gradlew assembleDebug
 
-      - name: Upload APK File
-        uses: actions/upload-artifact@v3
+      - name: Deliver Mobile App Download Package
+        uses: actions/upload-artifact@v4
         with:
-          name: LoanManager-App
+          name: LoanManager-App-Installer
           path: android/app/build/outputs/apk/debug/app-debug.apk
