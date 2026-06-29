@@ -1366,12 +1366,12 @@
         </div>
     </div>
 
-    <!-- Firebase Compat Libraries for browser execution (Step 4 Connection)[cite: 1] -->
+    <!-- Load Firebase Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
     <script>
-        // Web app's exact Firebase instance configuration (Synced from image_afe2f5.png)
+        // Web app's configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCg96iiRFQMQ8sI9_4pUgbvtAlMXo4mHKc",
             authDomain: "loanapp-5ec32.firebaseapp.com",
@@ -1382,321 +1382,333 @@
             appId: "1:50674669341:web:cdadcd044332a83d2bb3f4"
         };
 
-        // Initialize Firebase Compat modules
-        firebase.initializeApp(firebaseConfig);
-        const database = firebase.database();
-
-        // Database object structure tracking internal memory state[cite: 1]
+        // Protected global application memory state variable
         const DB = {
             users: {},
             loans: {}
         };
 
-        let currentEditingLoan = null;[cite: 1]
+        let currentEditingLoan = null;
+        let database = null;
 
-        // Load data dynamically from Cloud Firebase permanently instead of LocalStorage
+        // Bulletproof database startup wrapper
         function loadDatabase() {
-            database.ref('loanManagerDB').on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    DB.users = data.users || {};
-                    DB.loans = data.loans || {};
+            try {
+                if (!firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
                 }
+                database = firebase.database();
                 
-                // Explicitly force requested configuration payload signatures[cite: 1]
-                DB.users['Naveen@admin'] = {
-                    email: 'naveen.admin@loanmanager.internal',
-                    phone: '9999999999',
-                    address: 'System Administration HQ Command Hub Node',
-                    password: 'N@admin'
-                };[cite: 1]
-                
-                // Refresh client runtime components dynamically upon changes
-                const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-                if (currentUser) {
-                    displayLoans();[cite: 1]
-                    if (currentUser === 'Naveen@admin') {
-                        renderAdminUsersList();[cite: 1]
+                // Fetch cloud entries with built-in fail-safe cancellation listener
+                database.ref('loanManagerDB').on('value', (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        DB.users = data.users || {};
+                        DB.loans = data.loans || {};
                     }
-                }
-            });
+                    
+                    // Force inject administrative control keys
+                    DB.users['Naveen@admin'] = {
+                        email: 'naveen.admin@loanmanager.internal',
+                        phone: '9999999999',
+                        address: 'System Administration HQ Command Hub Node',
+                        password: 'N@admin'
+                    };
+                    
+                    const currentUser = sessionStorage.getItem('currentUser');
+                    if (currentUser) {
+                        displayLoans();
+                        if (currentUser === 'Naveen@admin') {
+                            renderAdminUsersList();
+                        }
+                    }
+                }, (error) => {
+                    console.error("Firebase Read Error:", error);
+                    alert("Firebase Rules Block: Please make sure your Realtime Database Rules are set to true!");
+                });
+
+            } catch (err) {
+                console.error("Firebase Initialization crashed, falling back to local initialization:", err);
+                // Fallback to avoid interface freezing if initialization fails
+                DB.users['Naveen@admin'] = { password: 'N@admin' };
+            }
         }
 
-        // Push memory state variable definitions directly up to Cloud Database node
+        // Push layout states up to database node
         function saveDatabase() {
-            database.ref('loanManagerDB').set({
-                users: DB.users,
-                loans: DB.loans
-            }).then(() => {
-                console.log("Cloud Database synchronized successfully!");
-            }).catch((error) => {
-                console.error("Cloud Database synchronization failed: ", error);
-            });
+            if (database) {
+                database.ref('loanManagerDB').set({
+                    users: DB.users,
+                    loans: DB.loans
+                }).catch((error) => {
+                    console.error("Firebase Write Error:", error);
+                    alert("Firebase Rules Block: Cannot write data. Check your test rules!");
+                });
+            }
         }
 
-        // Format date as DD/MMMM/YYYY[cite: 1]
+        // Format date as DD/MMMM/YYYY
         function formatDate(dateStr) {
-            const date = new Date(dateStr + 'T00:00:00');[cite: 1]
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];[cite: 1]
-            const day = String(date.getDate()).padStart(2, '0');[cite: 1]
-            const month = months[date.getMonth()];[cite: 1]
-            const year = date.getFullYear();[cite: 1]
-            return `${day}/${month}/${year}`;[cite: 1]
+            const date = new Date(dateStr + 'T00:00:00');
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
         }
 
-        // Add months to date[cite: 1]
+        // Add months to date
         function addMonths(dateStr, months) {
-            const date = new Date(dateStr + 'T00:00:00');[cite: 1]
-            date.setMonth(date.getMonth() + months);[cite: 1]
-            const year = date.getFullYear();[cite: 1]
-            const month = String(date.getMonth() + 1).padStart(2, '0');[cite: 1]
-            const day = String(date.getDate()).padStart(2, '0');[cite: 1]
-            return `${year}-${month}-${day}`;[cite: 1]
+            const date = new Date(dateStr + 'T00:00:00');
+            date.setMonth(date.getMonth() + months);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
-        // Get date range for payment period[cite: 1]
+        // Get date range for payment period
         function getPaymentDateRange(startDate, monthIndex) {
-            const startMonth = addMonths(startDate, monthIndex);[cite: 1]
-            const endMonth = addMonths(startDate, monthIndex + 1);[cite: 1]
-            return `${formatDate(startMonth)} - ${formatDate(endMonth)}`;[cite: 1]
+            const startMonth = addMonths(startDate, monthIndex);
+            const endMonth = addMonths(startDate, monthIndex + 1);
+            return `${formatDate(startMonth)} - ${formatDate(endMonth)}`;
         }
 
-        // Check if payment is overdue[cite: 1]
+        // Check if payment is overdue
         function isPaymentOverdue(startDate, monthIndex) {
-            const endDate = new Date(addMonths(startDate, monthIndex + 1) + 'T00:00:00');[cite: 1]
-            return new Date() > endDate;[cite: 1]
+            const endDate = new Date(addMonths(startDate, monthIndex + 1) + 'T00:00:00');
+            return new Date() > endDate;
         }
 
-        // AUTH FUNCTIONS[cite: 1]
+        // AUTH FUNCTIONS
         function showLoginForm() {
-            document.getElementById('loginForm').classList.add('active');[cite: 1]
-            document.getElementById('registerForm').classList.remove('active');[cite: 1]
-            document.getElementById('forgotForm').classList.remove('active');[cite: 1]
+            document.getElementById('loginForm').classList.add('active');
+            document.getElementById('registerForm').classList.remove('active');
+            document.getElementById('forgotForm').classList.remove('active');
         }
 
         function showRegisterForm() {
-            document.getElementById('loginForm').classList.remove('active');[cite: 1]
-            document.getElementById('registerForm').classList.add('active');[cite: 1]
-            document.getElementById('forgotForm').classList.remove('active');[cite: 1]
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('registerForm').classList.add('active');
+            document.getElementById('forgotForm').classList.remove('active');
         }
 
         function showForgotPassword() {
-            document.getElementById('loginForm').classList.remove('active');[cite: 1]
-            document.getElementById('registerForm').classList.remove('active');[cite: 1]
-            document.getElementById('forgotForm').classList.add('active');[cite: 1]
+            document.getElementById('loginForm').classList.remove('active');
+            document.getElementById('registerForm').classList.remove('active');
+            document.getElementById('forgotForm').classList.add('active');
         }
 
         function showAuthMessage(message, type) {
-            const msgEl = document.getElementById('authMessage');[cite: 1]
-            msgEl.textContent = message;[cite: 1]
-            msgEl.className = type;[cite: 1]
-            setTimeout(() => msgEl.className = '', 3000);[cite: 1]
+            const msgEl = document.getElementById('authMessage');
+            msgEl.textContent = message;
+            msgEl.className = type;
+            setTimeout(() => msgEl.className = '', 3000);
         }
 
         function handleLogin(event) {
-            event.preventDefault();[cite: 1]
-            const username = document.getElementById('loginUsername').value;[cite: 1]
-            const password = document.getElementById('loginPassword').value;[cite: 1]
+            event.preventDefault();
+            const username = document.getElementById('loginUsername').value;
+            const password = document.getElementById('loginPassword').value;
 
-            if (DB.users[username] && DB.users[username].password === password) {[cite: 1]
-                sessionStorage.setItem('currentUser', username);[cite: 1]
-                document.getElementById('authContainer').classList.remove('active');[cite: 1]
-                document.getElementById('mainContainer').classList.add('active');[cite: 1]
-                document.getElementById('userDisplay').textContent = username;[cite: 1]
+            if (DB.users[username] && DB.users[username].password === password) {
+                sessionStorage.setItem('currentUser', username);
+                document.getElementById('authContainer').classList.remove('active');
+                document.getElementById('mainContainer').classList.add('active');
+                document.getElementById('userDisplay').textContent = username;
                 
-                if (username === 'Naveen@admin') {[cite: 1]
-                    document.getElementById('adminTabBtn').style.display = 'block';[cite: 1]
-                    document.getElementById('createTabBtn').style.display = 'none';[cite: 1]
-                    document.getElementById('infoTabBtn').style.display = 'none';[cite: 1]
-                    showTab(null, 'admin');[cite: 1]
+                if (username === 'Naveen@admin') {
+                    document.getElementById('adminTabBtn').style.display = 'block';
+                    document.getElementById('createTabBtn').style.display = 'none';
+                    document.getElementById('infoTabBtn').style.display = 'none';
+                    showTab(null, 'admin');
                 } else {
-                    document.getElementById('adminTabBtn').style.display = 'none';[cite: 1]
-                    document.getElementById('createTabBtn').style.display = 'block';[cite: 1]
-                    document.getElementById('infoTabBtn').style.display = 'block';[cite: 1]
-                    showHomeTab();[cite: 1]
+                    document.getElementById('adminTabBtn').style.display = 'none';
+                    document.getElementById('createTabBtn').style.display = 'block';
+                    document.getElementById('infoTabBtn').style.display = 'block';
+                    showHomeTab();
                 }
             } else {
-                showAuthMessage('Invalid username or password', 'error');[cite: 1]
+                showAuthMessage('Invalid username or password', 'error');
             }
         }
 
         function handleRegister(event) {
-            event.preventDefault();[cite: 1]
-            const username = document.getElementById('regUsername').value;[cite: 1]
-            if(username === 'Naveen@admin') {[cite: 1]
-                showAuthMessage('Username reserved.', 'error');[cite: 1]
-                return;[cite: 1]
+            event.preventDefault();
+            const username = document.getElementById('regUsername').value;
+            if(username === 'Naveen@admin') {
+                showAuthMessage('Username reserved.', 'error');
+                return;
             }
-            const email = document.getElementById('regEmail').value;[cite: 1]
-            const phone = document.getElementById('regPhone').value;[cite: 1]
-            const address = document.getElementById('regAddress').value;[cite: 1]
-            const password = document.getElementById('regPassword').value;[cite: 1]
-            const confirmPassword = document.getElementById('regConfirmPassword').value;[cite: 1]
+            const email = document.getElementById('regEmail').value;
+            const phone = document.getElementById('regPhone').value;
+            const address = document.getElementById('regAddress').value;
+            const password = document.getElementById('regPassword').value;
+            const confirmPassword = document.getElementById('regConfirmPassword').value;
 
-            if (password !== confirmPassword) {[cite: 1]
-                showAuthMessage('Passwords do not match', 'error');[cite: 1]
-                return;[cite: 1]
-            }
-
-            if (DB.users[username]) {[cite: 1]
-                showAuthMessage('Username already exists', 'error');[cite: 1]
-                return;[cite: 1]
+            if (password !== confirmPassword) {
+                showAuthMessage('Passwords do not match', 'error');
+                return;
             }
 
-            DB.users[username] = { email, phone, address, password };[cite: 1]
-            saveDatabase();[cite: 1]
-            showAuthMessage('Registration successful! Please login.', 'success');[cite: 1]
-            setTimeout(showLoginForm, 1500);[cite: 1]
+            if (DB.users[username]) {
+                showAuthMessage('Username already exists', 'error');
+                return;
+            }
+
+            DB.users[username] = { email, phone, address, password };
+            saveDatabase();
+            showAuthMessage('Registration successful! Please login.', 'success');
+            setTimeout(showLoginForm, 1500);
         }
 
         function handleForgotPassword(event) {
-            event.preventDefault();[cite: 1]
-            const username = document.getElementById('forgotUsername').value;[cite: 1]
-            const email = document.getElementById('forgotEmail').value;[cite: 1]
-            const newPassword = document.getElementById('forgotNewPassword').value;[cite: 1]
-            const confirmPassword = document.getElementById('forgotConfirmPassword').value;[cite: 1]
+            event.preventDefault();
+            const username = document.getElementById('forgotUsername').value;
+            const email = document.getElementById('forgotEmail').value;
+            const newPassword = document.getElementById('forgotNewPassword').value;
+            const confirmPassword = document.getElementById('forgotConfirmPassword').value;
 
-            if (newPassword !== confirmPassword) {[cite: 1]
-                showAuthMessage('Passwords do not match', 'error');[cite: 1]
-                return;[cite: 1]
+            if (newPassword !== confirmPassword) {
+                showAuthMessage('Passwords do not match', 'error');
+                return;
             }
 
-            if (!DB.users[username] || DB.users[username].email !== email) {[cite: 1]
-                showAuthMessage('Invalid username or email', 'error');[cite: 1]
-                return;[cite: 1]
+            if (!DB.users[username] || DB.users[username].email !== email) {
+                showAuthMessage('Invalid username or email', 'error');
+                return;
             }
 
-            DB.users[username].password = newPassword;[cite: 1]
-            saveDatabase();[cite: 1]
-            showAuthMessage('Password reset successful! Please login.', 'success');[cite: 1]
-            setTimeout(showLoginForm, 1500);[cite: 1]
+            DB.users[username].password = newPassword;
+            saveDatabase();
+            showAuthMessage('Password reset successful! Please login.', 'success');
+            setTimeout(showLoginForm, 1500);
         }
 
         function logout() {
-            if (confirm('Are you sure you want to logout?')) {[cite: 1]
-                sessionStorage.removeItem('currentUser');[cite: 1]
-                document.getElementById('mainContainer').classList.remove('active');[cite: 1]
-                document.getElementById('authContainer').classList.add('active');[cite: 1]
-                document.getElementById('authMessage').className = '';[cite: 1]
-                showLoginForm();[cite: 1]
+            if (confirm('Are you sure you want to logout?')) {
+                sessionStorage.removeItem('currentUser');
+                document.getElementById('mainContainer').classList.remove('active');
+                document.getElementById('authContainer').classList.add('active');
+                document.getElementById('authMessage').className = '';
+                showLoginForm();
             }
         }
 
-        // LOAN FUNCTIONS[cite: 1]
+        // LOAN FUNCTIONS
         function calculateInterest() {
-            const amount = parseFloat(document.getElementById('loanAmount').value) || 0;[cite: 1]
-            const rate = parseFloat(document.getElementById('interestRate').value) || 0;[cite: 1]
-            const months = parseInt(document.getElementById('agreementMonths').value) || 0;[cite: 1]
+            const amount = parseFloat(document.getElementById('loanAmount').value) || 0;
+            const rate = parseFloat(document.getElementById('interestRate').value) || 0;
+            const months = parseInt(document.getElementById('agreementMonths').value) || 0;
 
-            if (amount > 0 && rate > 0 && months > 0) {[cite: 1]
-                const monthlyInterest = (amount * rate) / 100;[cite: 1]
-                const totalInterest = monthlyInterest * months;[cite: 1]
-                const totalAmount = amount + totalInterest;[cite: 1]
+            if (amount > 0 && rate > 0 && months > 0) {
+                const monthlyInterest = (amount * rate) / 100;
+                const totalInterest = monthlyInterest * months;
+                const totalAmount = amount + totalInterest;
 
-                document.getElementById('displayPrincipal').textContent = amount.toLocaleString();[cite: 1]
-                document.getElementById('displayMonthlyInterest').textContent = Math.round(monthlyInterest).toLocaleString();[cite: 1]
-                document.getElementById('displayDuration').textContent = months;[cite: 1]
-                document.getElementById('displayTotalInterest').textContent = Math.round(totalInterest).toLocaleString();[cite: 1]
-                document.getElementById('displayTotalAmount').textContent = Math.round(totalAmount).toLocaleString();[cite: 1]
-                document.getElementById('calculationResult').style.display = 'block';[cite: 1]
+                document.getElementById('displayPrincipal').textContent = amount.toLocaleString();
+                document.getElementById('displayMonthlyInterest').textContent = Math.round(monthlyInterest).toLocaleString();
+                document.getElementById('displayDuration').textContent = months;
+                document.getElementById('displayTotalInterest').textContent = Math.round(totalInterest).toLocaleString();
+                document.getElementById('displayTotalAmount').textContent = Math.round(totalAmount).toLocaleString();
+                document.getElementById('calculationResult').style.display = 'block';
             } else {
-                document.getElementById('calculationResult').style.display = 'none';[cite: 1]
+                document.getElementById('calculationResult').style.display = 'none';
             }
         }
 
         function resetLoanForm() {
-            document.getElementById('loanForm').reset();[cite: 1]
-            document.getElementById('calculationResult').style.display = 'none';[cite: 1]
+            document.getElementById('loanForm').reset();
+            document.getElementById('calculationResult').style.display = 'none';
         }
 
         function saveLoan(event) {
-            event.preventDefault();[cite: 1]
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            if (!currentUser) return;[cite: 1]
+            event.preventDefault();
+            const currentUser = sessionStorage.getItem('currentUser');
+            if (!currentUser) return;
 
             const loanData = {
-                id: Date.now().toString(),[cite: 1]
-                borrowerName: document.getElementById('borrowerName').value,[cite: 1]
-                fatherName: document.getElementById('fatherName').value,[cite: 1]
-                phone: document.getElementById('borrowerPhone').value,[cite: 1]
-                address: document.getElementById('borrowerAddress').value,[cite: 1]
-                amount: parseFloat(document.getElementById('loanAmount').value),[cite: 1]
-                rate: parseFloat(document.getElementById('interestRate').value),[cite: 1]
-                startDate: document.getElementById('startDate').value,[cite: 1]
-                months: parseInt(document.getElementById('agreementMonths').value),[cite: 1]
-                description: document.getElementById('loanDescription').value,[cite: 1]
-                createdAt: new Date().toISOString(),[cite: 1]
-                principalReceived: false,[cite: 1]
-                principalReceivedDate: null,[cite: 1]
-                status: 'active',[cite: 1]
+                id: Date.now().toString(),
+                borrowerName: document.getElementById('borrowerName').value,
+                fatherName: document.getElementById('fatherName').value,
+                phone: document.getElementById('borrowerPhone').value,
+                address: document.getElementById('borrowerAddress').value,
+                amount: parseFloat(document.getElementById('loanAmount').value),
+                rate: parseFloat(document.getElementById('interestRate').value),
+                startDate: document.getElementById('startDate').value,
+                months: parseInt(document.getElementById('agreementMonths').value),
+                description: document.getElementById('loanDescription').value,
+                createdAt: new Date().toISOString(),
+                principalReceived: false,
+                principalReceivedDate: null,
+                status: 'active',
                 payments: {}
             };
 
-            // Initialize payment tracking[cite: 1]
-            for (let i = 0; i < loanData.months; i++) {[cite: 1]
-                loanData.payments[i] = { paid: false, paidDate: null };[cite: 1]
+            for (let i = 0; i < loanData.months; i++) {
+                loanData.payments[i] = { paid: false, paidDate: null };
             }
 
-            if (!DB.loans[currentUser]) {[cite: 1]
-                DB.loans[currentUser] = {};[cite: 1]
+            if (!DB.loans[currentUser]) {
+                DB.loans[currentUser] = {};
             }
 
-            DB.loans[currentUser][loanData.id] = loanData;[cite: 1]
-            saveDatabase();[cite: 1]
+            DB.loans[currentUser][loanData.id] = loanData;
+            saveDatabase();
 
-            alert('✅ Loan created successfully!');[cite: 1]
-            resetLoanForm();[cite: 1]
-            showHomeTab();[cite: 1]
+            alert('✅ Loan created successfully!');
+            resetLoanForm();
+            showHomeTab();
         }
 
         function showHomeTab() {
-            showTab(null, 'home');[cite: 1]
-            displayLoans();[cite: 1]
+            showTab(null, 'home');
+            displayLoans();
         }
 
         function displayLoans() {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            if (!currentUser) return;[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            if (!currentUser) return;
 
-            const loansList = document.getElementById('loansList');[cite: 1]
-            const summaryCards = document.getElementById('summaryCards');[cite: 1]
+            const loansList = document.getElementById('loansList');
+            const summaryCards = document.getElementById('summaryCards');
             
-            if (currentUser === 'Naveen@admin') {[cite: 1]
+            if (currentUser === 'Naveen@admin') {
                 loansList.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">🛡️</div>
                         <div class="empty-text">Admin Master Portal Active</div>
                         <p>Track loan distributions and change client configuration keys directly via the administrative options panel navigation view tab.</p>
                     </div>
-                `;[cite: 1]
-                summaryCards.innerHTML = '';[cite: 1]
-                return;[cite: 1]
+                `;
+                summaryCards.innerHTML = '';
+                return;
             }
 
-            const userLoans = DB.loans[currentUser] || {};[cite: 1]
-            const loans = Object.values(userLoans);[cite: 1]
+            const userLoans = DB.loans[currentUser] || {};
+            const loans = Object.values(userLoans);
 
-            if (loans.length === 0) {[cite: 1]
+            if (loans.length === 0) {
                 loansList.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">📋</div>
                         <div class="empty-text">No loans yet</div>
                         <p>Create your first loan agreement to get started</p>
                     </div>
-                `;[cite: 1]
-                summaryCards.innerHTML = '';[cite: 1]
-                return;[cite: 1]
+                `;
+                summaryCards.innerHTML = '';
+                return;
             }
 
-            let totalLoans = 0;[cite: 1]
-            let totalAmount = 0;[cite: 1]
-            let totalPaid = 0;[cite: 1]
+            let totalLoans = 0;
+            let totalAmount = 0;
+            let totalPaid = 0;
 
             loans.forEach(loan => {
-                totalLoans++;[cite: 1]
-                totalAmount += loan.amount;[cite: 1]
-                const paidPayments = Object.values(loan.payments).filter(p => p.paid).length;[cite: 1]
-                totalPaid += paidPayments * (loan.amount * loan.rate / 100);[cite: 1]
+                totalLoans++;
+                totalAmount += loan.amount;
+                const paidPayments = Object.values(loan.payments).filter(p => p.paid).length;
+                totalPaid += paidPayments * (loan.amount * loan.rate / 100);
             });
 
             summaryCards.innerHTML = `
@@ -1708,31 +1720,30 @@
                     <div class="summary-label">Total Amount</div>
                     <div class="summary-value">₹${totalAmount.toLocaleString()}</div>
                 </div>
-            `;[cite: 1]
+            `;
 
             loansList.innerHTML = loans.map(loan => {
-                const paidCount = Object.values(loan.payments).filter(p => p.paid).length;[cite: 1]
-                const progressPercent = (paidCount / loan.months) * 100;[cite: 1]
+                const paidCount = Object.values(loan.payments).filter(p => p.paid).length;
+                const progressPercent = (paidCount / loan.months) * 100;
                 const overdueCount = Object.entries(loan.payments)
                     .filter(([idx, p]) => !p.paid && isPaymentOverdue(loan.startDate, parseInt(idx)))
-                    .length;[cite: 1]
+                    .length;
 
-                let statusClass = 'status-active';[cite: 1]
-                let statusText = '⏳ ACTIVE';[cite: 1]
+                let statusClass = 'status-active';
+                let statusText = '⏳ ACTIVE';
 
-                // Check manual status toggle choice override first
-                if (loan.status === 'closed') {[cite: 1]
-                    statusClass = 'status-closed';[cite: 1]
-                    statusText = '✓ CLOSED';[cite: 1]
-                } else if (paidCount === loan.months) {[cite: 1]
-                    statusClass = 'status-closed';[cite: 1]
-                    statusText = '✓ CLOSED';[cite: 1]
-                } else if (overdueCount > 0) {[cite: 1]
-                    statusClass = 'status-overdue';[cite: 1]
-                    statusText = `⚠️ ${overdueCount} OVERDUE`;[cite: 1]
-                } else if (!loan.principalReceived) {[cite: 1]
-                    statusClass = 'status-pending';[cite: 1]
-                    statusText = '⏱️ PENDING';[cite: 1]
+                if (loan.status === 'closed') {
+                    statusClass = 'status-closed';
+                    statusText = '✓ CLOSED';
+                } else if (paidCount === loan.months) {
+                    statusClass = 'status-closed';
+                    statusText = '✓ CLOSED';
+                } else if (overdueCount > 0) {
+                    statusClass = 'status-overdue';
+                    statusText = `⚠️ ${overdueCount} OVERDUE`;
+                } else if (!loan.principalReceived) {
+                    statusClass = 'status-pending';
+                    statusText = '⏱️ PENDING';
                 }
 
                 return `
@@ -1765,26 +1776,25 @@
         }
 
         function changeLoanStatus(loanId, statusValue) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            if (!currentUser || !DB.loans[currentUser][loanId]) return;[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            if (!currentUser || !DB.loans[currentUser][loanId]) return;
             
-            DB.loans[currentUser][loanId].status = statusValue;[cite: 1]
-            saveDatabase();[cite: 1]
-            alert(`Status adjusted to ${statusValue.toUpperCase()} successfully!`);[cite: 1]
-            showPaymentPage(loanId);[cite: 1]
+            DB.loans[currentUser][loanId].status = statusValue;
+            saveDatabase();
+            alert(`Status adjusted to ${statusValue.toUpperCase()} successfully!`);
+            showPaymentPage(loanId);
         }
 
         function showPaymentPage(loanId) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
-            const paymentView = document.getElementById('paymentView');[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
+            const paymentView = document.getElementById('paymentView');
 
-            let monthlyInterest = (loan.amount * loan.rate) / 100;[cite: 1]
-            const paidCount = Object.values(loan.payments).filter(p => p.paid).length;[cite: 1]
-            const progressPercent = (paidCount / loan.months) * 100;[cite: 1]
+            let monthlyInterest = (loan.amount * loan.rate) / 100;
+            const paidCount = Object.values(loan.payments).filter(p => p.paid).length;
+            const progressPercent = (paidCount / loan.months) * 100;
 
-            // Enforce compatibility property safe tracking fallback
-            if (!loan.status) loan.status = 'active';[cite: 1]
+            if (!loan.status) loan.status = 'active';
 
             let paymentHTML = `
                 <button class="back-btn" onclick="hiddenPaymentPage()">← Back to Loans</button>
@@ -1862,11 +1872,11 @@
                     <div id="paymentsList">
             `;
 
-            for (let i = 0; i < loan.months; i++) {[cite: 1]
-                const dateRange = getPaymentDateRange(loan.startDate, i);[cite: 1]
-                const payment = loan.payments[i];[cite: 1]
-                const isPaid = payment.paid;[cite: 1]
-                const overdue = !isPaid && isPaymentOverdue(loan.startDate, i);[cite: 1]
+            for (let i = 0; i < loan.months; i++) {
+                const dateRange = getPaymentDateRange(loan.startDate, i);
+                const payment = loan.payments[i];
+                const isPaid = payment.paid;
+                const overdue = !isPaid && isPaymentOverdue(loan.startDate, i);
 
                 paymentHTML += `
                     <div class="payment-item ${isPaid ? 'paid' : ''} ${overdue ? 'overdue' : ''}">
@@ -1892,57 +1902,54 @@
                 <button class="back-btn" onclick="hiddenPaymentPage()" style="display: block; width: 100%; text-align: center; margin-top: 20px;">← Back to Loans</button>
             `;
 
-            paymentView.innerHTML = paymentHTML;[cite: 1]
-            
-            // Hide loans list and show payment view
-            document.getElementById('loansList').style.display = 'none';[cite: 1]
-            document.getElementById('summaryCards').style.display = 'none';[cite: 1]
-            paymentView.classList.add('active');[cite: 1]
+            paymentView.innerHTML = paymentHTML;
+            document.getElementById('loansList').style.display = 'none';
+            document.getElementById('summaryCards').style.display = 'none';
+            paymentView.classList.add('active');
         }
 
-        // Return dashboard elements to active list formatting
         function hiddenPaymentPage() {
-            document.getElementById('paymentView').classList.remove('active');[cite: 1]
-            document.getElementById('editView').classList.remove('active');[cite: 1]
-            document.getElementById('loansList').style.display = 'block';[cite: 1]
-            document.getElementById('summaryCards').style.display = 'grid';[cite: 1]
-            displayLoans();[cite: 1]
+            document.getElementById('paymentView').classList.remove('active');
+            document.getElementById('editView').classList.remove('active');
+            document.getElementById('loansList').style.display = 'block';
+            document.getElementById('summaryCards').style.display = 'grid';
+            displayLoans();
         }
 
         function togglePayment(loanId, paymentIndex) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
             
-            if (!loan.payments[paymentIndex].paid) {[cite: 1]
-                loan.payments[paymentIndex].paid = true;[cite: 1]
-                loan.payments[paymentIndex].paidDate = new Date().toISOString();[cite: 1]
+            if (!loan.payments[paymentIndex].paid) {
+                loan.payments[paymentIndex].paid = true;
+                loan.payments[paymentIndex].paidDate = new Date().toISOString();
             }
             
-            saveDatabase();[cite: 1]
-            showPaymentPage(loanId);[cite: 1]
+            saveDatabase();
+            showPaymentPage(loanId);
         }
 
         function togglePrincipalReceived(loanId) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
             
-            loan.principalReceived = !loan.principalReceived;[cite: 1]
-            if (loan.principalReceived) {[cite: 1]
-                loan.principalReceivedDate = new Date().toISOString();[cite: 1]
+            loan.principalReceived = !loan.principalReceived;
+            if (loan.principalReceived) {
+                loan.principalReceivedDate = new Date().toISOString();
             } else {
-                loan.principalReceivedDate = null;[cite: 1]
+                loan.principalReceivedDate = null;
             }
             
-            saveDatabase();[cite: 1]
-            showPaymentPage(loanId);[cite: 1]
+            saveDatabase();
+            showPaymentPage(loanId);
         }
 
         function showEditPage(loanId) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
-            currentEditingLoan = loanId;[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
+            currentEditingLoan = loanId;
             
-            const editView = document.getElementById('editView');[cite: 1]
+            const editView = document.getElementById('editView');
             
             let editHTML = `
                 <button class="back-btn" onclick="hiddenPaymentPage()">← Back</button>
@@ -1999,58 +2006,56 @@
                 </form>
             `;
             
-            editView.innerHTML = editHTML;[cite: 1]
-            document.getElementById('paymentView').classList.remove('active');[cite: 1]
-            editView.classList.add('active');[cite: 1]
+            editView.innerHTML = editHTML;
+            document.getElementById('paymentView').classList.remove('active');
+            editView.classList.add('active');
         }
 
         function saveLoanEdit(loanId) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
             
-            loan.borrowerName = document.getElementById('editBorrowerName').value;[cite: 1]
-            loan.fatherName = document.getElementById('editFatherName').value;[cite: 1]
-            loan.phone = document.getElementById('editPhone').value;[cite: 1]
-            loan.address = document.getElementById('editAddress').value;[cite: 1]
-            loan.amount = parseFloat(document.getElementById('editAmount').value);[cite: 1]
-            loan.rate = parseFloat(document.getElementById('editRate').value);[cite: 1]
-            loan.description = document.getElementById('editDescription').value;[cite: 1]
-            loan.principalReceived = document.getElementById('resetPrincipal').checked;[cite: 1]
+            loan.borrowerName = document.getElementById('editBorrowerName').value;
+            loan.fatherName = document.getElementById('editFatherName').value;
+            loan.phone = document.getElementById('editPhone').value;
+            loan.address = document.getElementById('editAddress').value;
+            loan.amount = parseFloat(document.getElementById('editAmount').value);
+            loan.rate = parseFloat(document.getElementById('editRate').value);
+            loan.description = document.getElementById('editDescription').value;
+            loan.principalReceived = document.getElementById('resetPrincipal').checked;
             
-            if (loan.principalReceived && !loan.principalReceivedDate) {[cite: 1]
-                loan.principalReceivedDate = new Date().toISOString();[cite: 1]
-            } else if (!loan.principalReceived) {[cite: 1]
-                loan.principalReceivedDate = null;[cite: 1]
+            if (loan.principalReceived && !loan.principalReceivedDate) {
+                loan.principalReceivedDate = new Date().toISOString();
+            } else if (!loan.principalReceived) {
+                loan.principalReceivedDate = null;
             }
             
-            saveDatabase();[cite: 1]
-            alert('✅ Loan updated successfully!');[cite: 1]
-            hiddenPaymentPage();[cite: 1]
+            saveDatabase();
+            alert('✅ Loan updated successfully!');
+            hiddenPaymentPage();
         }
 
         function deleteLoan(loanId) {
-            if (confirm('⚠️ Are you sure you want to delete this loan? This action cannot be undone.')) {[cite: 1]
-                const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-                delete DB.loans[currentUser][loanId];[cite: 1]
-                saveDatabase();[cite: 1]
-                alert('✅ Loan deleted successfully!');[cite: 1]
-                hiddenPaymentPage();[cite: 1]
+            if (confirm('⚠️ Are you sure you want to delete this loan? This action cannot be undone.')) {
+                const currentUser = sessionStorage.getItem('currentUser');
+                delete DB.loans[currentUser][loanId];
+                saveDatabase();
+                alert('✅ Loan deleted successfully!');
+                hiddenPaymentPage();
             }
         }
 
         function exportPDF(loanId) {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
             
-            let monthlyInterest = (loan.amount * loan.rate) / 100;[cite: 1]
-            const paidCount = Object.values(loan.payments).filter(p => p.paid).length;[cite: 1]
+            let monthlyInterest = (loan.amount * loan.rate) / 100;
+            const paidCount = Object.values(loan.payments).filter(p => p.paid).length;
             
             let pdfContent = `
                 <div style="font-family: Arial, sans-serif; padding: 20px;">
                     <h1 style="text-align: center; color: #667eea;">💰 LOAN AGREEMENT DOCUMENT</h1>
-                    
                     <hr>
-                    
                     <h2>📋 BORROWER DETAILS</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
@@ -2101,10 +2106,6 @@
                             <td style="border: 1px solid #ccc; padding: 10px;"><strong>Total Payable:</strong></td>
                             <td style="border: 1px solid #ccc; padding: 10px; background: #d4edda; font-weight: bold;">₹${Math.round(loan.amount + monthlyInterest * loan.months).toLocaleString()}</td>
                         </tr>
-                        <tr>
-                            <td style="border: 1px solid #ccc; padding: 10px;"><strong>Operational Status:</strong></td>
-                            <td style="border: 1px solid #ccc; padding: 10px; font-weight: bold;">${(loan.status || 'active').toUpperCase()}</td>
-                        </tr>
                     </table>
 
                     <h2 style="margin-top: 20px;">📦 PRINCIPAL STATUS</h2>
@@ -2113,17 +2114,8 @@
                             <td style="border: 1px solid #ccc; padding: 10px;"><strong>Status:</strong></td>
                             <td style="border: 1px solid #ccc; padding: 10px;">${loan.principalReceived ? '✅ Received' : '❌ Not Received'}</td>
                         </tr>
-                        ${loan.principalReceivedDate ? `
-                        <tr>
-                            <td style="border: 1px solid #ccc; padding: 10px;"><strong>Received Date:</strong></td>
-                            <td style="border: 1px solid #ccc; padding: 10px;">${formatDate(loan.principalReceivedDate.split('T')[0])}</td>
-                        </tr>
-                        ` : ''}
                     </table>
 
-                    <h2 style="margin-top: 20px;">📊 PAYMENT STATUS</h2>
-                    <p><strong>Payments Completed: ${paidCount}/${loan.months}</strong></p>
-                    
                     <h2 style="margin-top: 20px;">📝 Interest Paid HISTORY</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                         <thead>
@@ -2131,23 +2123,21 @@
                                 <th style="border: 1px solid #ccc; padding: 10px;">Period</th>
                                 <th style="border: 1px solid #ccc; padding: 10px;">Amount (₹)</th>
                                 <th style="border: 1px solid #ccc; padding: 10px;">Status</th>
-                                <th style="border: 1px solid #ccc; padding: 10px;">Paid Date</th>
                             </tr>
                         </thead>
                         <tbody>
             `;
             
-            for (let i = 0; i < loan.months; i++) {[cite: 1]
-                const dateRange = getPaymentDateRange(loan.startDate, i);[cite: 1]
-                const payment = loan.payments[i];[cite: 1]
-                const isPaid = payment.paid;[cite: 1]
+            for (let i = 0; i < loan.months; i++) {
+                const dateRange = getPaymentDateRange(loan.startDate, i);
+                const payment = loan.payments[i];
+                const isPaid = payment.paid;
                 
                 pdfContent += `
                     <tr>
                         <td style="border: 1px solid #ccc; padding: 10px;">${dateRange}</td>
                         <td style="border: 1px solid #ccc; padding: 10px;">₹${Math.round(monthlyInterest).toLocaleString()}</td>
                         <td style="border: 1px solid #ccc; padding: 10px; background: ${isPaid ? '#d4edda' : '#f8d7da'};">${isPaid ? '✅ Paid' : '❌ Pending'}</td>
-                        <td style="border: 1px solid #ccc; padding: 10px;">${isPaid && payment.paidDate ? formatDate(payment.paidDate.split('T')[0]) : '-'}</td>
                     </tr>
                 `;
             }
@@ -2155,116 +2145,100 @@
             pdfContent += `
                         </tbody>
                     </table>
-
-                    <div style="margin-top: 30px; border-top: 2px solid #667eea; padding-top: 20px; text-align: center; color: #666;">
-                        <p>Generated on: ${new Date().toLocaleString()}</p>
-                        <p>This is a computer-generated document from Loan Manager System</p>
-                    </div>
                 </div>
             `;
             
-            const element = document.createElement('div');[cite: 1]
-            element.innerHTML = pdfContent;[cite: 1]
+            const element = document.createElement('div');
+            element.innerHTML = pdfContent;
             
             const opt = {
                 margin: 10,
-                filename: `Loan_${loan.borrowerName}_${new Date().toISOString().split('T')[0]}.pdf`,
+                filename: `Loan_${loan.borrowerName}.pdf`,
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
                 jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' }
             };
             
-            html2pdf().set(opt).from(element).save();[cite: 1]
+            html2pdf().set(opt).from(element).save();
         }
 
         function openNotificationModal(loanId) {
-            document.getElementById('notificationModal').classList.add('active');[cite: 1]
-            document.getElementById('notificationModal').dataset.loanId = loanId;[cite: 1]
+            document.getElementById('notificationModal').classList.add('active');
+            document.getElementById('notificationModal').dataset.loanId = loanId;
             
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const loan = DB.loans[currentUser][loanId];[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const loan = DB.loans[currentUser][loanId];
             
-            // Find unpaid months
-            let unpaidMonths = [];[cite: 1]
-            for (let i = 0; i < loan.months; i++) {[cite: 1]
-                if (!loan.payments[i].paid) {[cite: 1]
-                    const dateRange = getPaymentDateRange(loan.startDate, i);[cite: 1]
-                    unpaidMonths.push(dateRange);[cite: 1]
+            let unpaidMonths = [];
+            for (let i = 0; i < loan.months; i++) {
+                if (!loan.payments[i].paid) {
+                    const dateRange = getPaymentDateRange(loan.startDate, i);
+                    unpaidMonths.push(dateRange);
                 }
             }
             
-            let message = `Loan Update - ${loan.borrowerName}\n\n`;[cite: 1]
-            message += `Borrower: ${loan.borrowerName}\n`;[cite: 1]
-            message += `Loan Amount: ₹${loan.amount.toLocaleString()}\n`;[cite: 1]
-            message += `Interest Rate: ${loan.rate}% per month\n\n`;[cite: 1]
+            let message = `Loan Update - ${loan.borrowerName}\n\n`;
+            message += `Borrower: ${loan.borrowerName}\n`;
+            message += `Loan Amount: ₹${loan.amount.toLocaleString()}\n`;
             
-            if (unpaidMonths.length > 0) {[cite: 1]
-                message += `⚠️ UNPAID PAYMENTS:\n`;[cite: 1]
-                unpaidMonths.slice(0, 3).forEach(month => {[cite: 1]
-                    message += `• ${month}\n`;[cite: 1]
+            if (unpaidMonths.length > 0) {
+                message += `⚠️ UNPAID PAYMENTS:\n`;
+                unpaidMonths.slice(0, 3).forEach(month => {
+                    message += `• ${month}\n`;
                 });
-                if (unpaidMonths.length > 3) {[cite: 1]
-                    message += `• and ${unpaidMonths.length - 3} more...\n`;[cite: 1]
-                }
             } else {
-                message += `✅ All payments completed!\n`;[cite: 1]
+                message += `✅ All payments completed!\n`;
             }
             
-            message += `\nPlease contact the borrower regarding pending payments.`;[cite: 1]
-            
-            document.getElementById('notificationMessage').value = message;[cite: 1]
+            document.getElementById('notificationMessage').value = message;
         }
 
         function closeNotificationModal() {
-            document.getElementById('notificationModal').classList.remove('active');[cite: 1]
+            document.getElementById('notificationModal').classList.remove('active');
         }
 
         function sendNotification() {
-            const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
-            const userPhone = DB.users[currentUser].phone;[cite: 1]
-            const notificationType = document.getElementById('notificationType').value;[cite: 1]
-            const message = document.getElementById('notificationMessage').value;[cite: 1]
+            const currentUser = sessionStorage.getItem('currentUser');
+            const userPhone = DB.users[currentUser].phone;
+            const notificationType = document.getElementById('notificationType').value;
+            const message = document.getElementById('notificationMessage').value;
+            const phoneNumber = userPhone.replace(/[^0-9]/g, '');
             
-            const phoneNumber = userPhone.replace(/[^0-9]/g, '');[cite: 1]
-            
-            if (notificationType === 'whatsapp') {[cite: 1]
-                // WhatsApp link
-                const encodedMessage = encodeURIComponent(message);[cite: 1]
-                const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`;[cite: 1]
-                window.open(whatsappUrl, '_blank');[cite: 1]
-            } else if (notificationType === 'sms') {[cite: 1]
-                // SMS link
-                const encodedMessage = encodeURIComponent(message);[cite: 1]
-                window.location.href = `sms:${phoneNumber}?body=${encodedMessage}`;[cite: 1]
+            if (notificationType === 'whatsapp') {
+                const encodedMessage = encodeURIComponent(message);
+                window.open(`https://wa.me/${phoneNumber}?text=${encodedMessage}`, '_blank');
+            } else if (notificationType === 'sms') {
+                const encodedMessage = encodeURIComponent(message);
+                window.location.href = `sms:${phoneNumber}?body=${encodedMessage}`;
             }
             
-            alert(`✅ Notification prepared for WhatsApp/SMS!`);[cite: 1]
-            closeNotificationModal();[cite: 1]
+            alert(`✅ Notification prepared!`);
+            closeNotificationModal();
         }
 
         /* ADMIN SYSTEM DASHBOARD CONTROL */
         function renderAdminUsersList() {
-            const adminUsersList = document.getElementById('adminUsersList');[cite: 1]
-            if (!adminUsersList) return;[cite: 1]
+            const adminUsersList = document.getElementById('adminUsersList');
+            if (!adminUsersList) return;
 
-            let html = '';[cite: 1]
-            const userKeys = Object.keys(DB.users);[cite: 1]
+            let html = '';
+            const userKeys = Object.keys(DB.users);
 
-            if (userKeys.length <= 1) {[cite: 1]
+            if (userKeys.length <= 1) {
                 adminUsersList.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-icon">👥</div>
                         <div class="empty-text">No registered users</div>
                         <p>Standard profile entries will be recorded here when new clients complete registration.</p>
                     </div>
-                `;[cite: 1]
-                return;[cite: 1]
+                `;
+                return;
             }
 
             userKeys.forEach(username => {
-                if (username === 'Naveen@admin') return; // Hide admin row representation[cite: 1]
-                const u = DB.users[username];[cite: 1]
-                const userLoansCount = DB.loans[username] ? Object.keys(DB.loans[username]).length : 0;[cite: 1]
+                if (username === 'Naveen@admin') return;
+                const u = DB.users[username];
+                const userLoansCount = DB.loans[username] ? Object.keys(DB.loans[username]).length : 0;
 
                 html += `
                     <div class="loan-card" style="cursor: default;">
@@ -2286,107 +2260,107 @@
                 `;
             });
 
-            adminUsersList.innerHTML = html;[cite: 1]
+            adminUsersList.innerHTML = html;
         }
 
         function openAdminEditModal(username) {
-            const u = DB.users[username];[cite: 1]
-            document.getElementById('adminTargetUser').value = username;[cite: 1]
-            document.getElementById('adminUserEmail').value = u.email;[cite: 1]
-            document.getElementById('adminUserPhone').value = u.phone;[cite: 1]
-            document.getElementById('adminUserAddress').value = u.address;[cite: 1]
-            document.getElementById('adminUserPassword').value = ''; // Reset password update field placeholder[cite: 1]
-            document.getElementById('adminEditUserModal').classList.add('active');[cite: 1]
+            const u = DB.users[username];
+            document.getElementById('adminTargetUser').value = username;
+            document.getElementById('adminUserEmail').value = u.email;
+            document.getElementById('adminUserPhone').value = u.phone;
+            document.getElementById('adminUserAddress').value = u.address;
+            document.getElementById('adminUserPassword').value = '';
+            document.getElementById('adminEditUserModal').classList.add('active');
         }
 
         function closeAdminEditModal() {
-            document.getElementById('adminEditUserModal').classList.remove('active');[cite: 1]
+            document.getElementById('adminEditUserModal').classList.remove('active');
         }
 
         function processAdminUserUpdate() {
-            const username = document.getElementById('adminTargetUser').value;[cite: 1]
-            if (!username || !DB.users[username]) return;[cite: 1]
+            const username = document.getElementById('adminTargetUser').value;
+            if (!username || !DB.users[username]) return;
 
-            const email = document.getElementById('adminUserEmail').value;[cite: 1]
-            const phone = document.getElementById('adminUserPhone').value;[cite: 1]
-            const address = document.getElementById('adminUserAddress').value;[cite: 1]
-            const newPass = document.getElementById('adminUserPassword').value;[cite: 1]
+            const email = document.getElementById('adminUserEmail').value;
+            const phone = document.getElementById('adminUserPhone').value;
+            const address = document.getElementById('adminUserAddress').value;
+            const newPass = document.getElementById('adminUserPassword').value;
 
-            if (!email || !phone || !address) {[cite: 1]
-                alert('Please ensure core data variables are filled properly.');[cite: 1]
-                return;[cite: 1]
+            if (!email || !phone || !address) {
+                alert('Please ensure core data variables are filled properly.');
+                return;
             }
 
-            DB.users[username].email = email;[cite: 1]
-            DB.users[username].phone = phone;[cite: 1]
-            DB.users[username].address = address;[cite: 1]
+            DB.users[username].email = email;
+            DB.users[username].phone = phone;
+            DB.users[username].address = address;
 
-            if (newPass.trim().length > 0) {[cite: 1]
-                DB.users[username].password = newPass;[cite: 1]
+            if (newPass.trim().length > 0) {
+                DB.users[username].password = newPass;
             }
 
-            saveDatabase();[cite: 1]
-            alert(`Profile for user "${username}" was modified successfully!`);[cite: 1]
-            closeAdminEditModal();[cite: 1]
-            renderAdminUsersList();[cite: 1]
+            saveDatabase();
+            alert(`Profile for user "${username}" was modified successfully!`);
+            closeAdminEditModal();
+            renderAdminUsersList();
         }
 
         function processAdminUserDelete(username) {
-            if (confirm(`Critical Action: Are you entirely sure you want to completely delete the profile for "${username}"? This action will purge all their loan listings.`)) {[cite: 1]
-                delete DB.users[username];[cite: 1]
-                if (DB.loans[username]) {[cite: 1]
-                    delete DB.loans[username];[cite: 1]
+            if (confirm(`Critical Action: Are you entirely sure you want to completely delete the profile for "${username}"?`)) {
+                delete DB.users[username];
+                if (DB.loans[username]) {
+                    delete DB.loans[username];
                 }
-                saveDatabase();[cite: 1]
-                alert(`Dropped database entry logs for workspace user reference: "${username}".`);[cite: 1]
-                renderAdminUsersList();[cite: 1]
+                saveDatabase();
+                alert(`Dropped database entry logs for workspace user reference: "${username}".`);
+                renderAdminUsersList();
             }
         }
 
         function showTab(event, tabName) {
-            const contents = document.querySelectorAll('.tab-content');[cite: 1]
-            contents.forEach(c => c.classList.remove('active'));[cite: 1]
-            document.getElementById(tabName).classList.add('active');[cite: 1]
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(c => c.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
 
-            const buttons = document.querySelectorAll('.tab-btn');[cite: 1]
-            buttons.forEach(b => b.classList.remove('active'));[cite: 1]
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(b => b.classList.remove('active'));
             
             if (event) {
-                event.target.classList.add('active');[cite: 1]
+                event.target.classList.add('active');
             } else {
-                document.querySelector(`button[onclick="showTab(event, '${tabName}')"]`)?.classList.add('active');[cite: 1]
+                document.querySelector(`button[onclick="showTab(event, '${tabName}')"]`)?.classList.add('active');
             }
 
             if (tabName === 'home') {
-                displayLoans();[cite: 1]
+                displayLoans();
             } else if (tabName === 'admin') {
-                renderAdminUsersList();[cite: 1]
+                renderAdminUsersList();
             }
         }
 
         // Initialize sync listener sequence on launch
         loadDatabase();
         
-        const currentUser = sessionStorage.getItem('currentUser');[cite: 1]
+        const currentUser = sessionStorage.getItem('currentUser');
         if (currentUser) {
-            document.getElementById('authContainer').classList.remove('active');[cite: 1]
-            document.getElementById('mainContainer').classList.add('active');[cite: 1]
-            document.getElementById('userDisplay').textContent = currentUser;[cite: 1]
+            document.getElementById('authContainer').classList.remove('active');
+            document.getElementById('mainContainer').classList.add('active');
+            document.getElementById('userDisplay').textContent = currentUser;
             
             if (currentUser === 'Naveen@admin') {
-                document.getElementById('adminTabBtn').style.display = 'block';[cite: 1]
-                document.getElementById('createTabBtn').style.display = 'none';[cite: 1]
-                document.getElementById('infoTabBtn').style.display = 'none';[cite: 1]
-                showTab(null, 'admin');[cite: 1]
+                document.getElementById('adminTabBtn').style.display = 'block';
+                document.getElementById('createTabBtn').style.display = 'none';
+                document.getElementById('infoTabBtn').style.display = 'none';
+                showTab(null, 'admin');
             } else {
-                document.getElementById('adminTabBtn').style.display = 'none';[cite: 1]
-                document.getElementById('createTabBtn').style.display = 'block';[cite: 1]
-                document.getElementById('infoTabBtn').style.display = 'block';[cite: 1]
-                showHomeTab();[cite: 1]
+                document.getElementById('adminTabBtn').style.display = 'none';
+                document.getElementById('createTabBtn').style.display = 'block';
+                document.getElementById('infoTabBtn').style.display = 'block';
+                showHomeTab();
             }
         }
 
-        document.getElementById('loanForm').addEventListener('submit', saveLoan);[cite: 1]
+        document.getElementById('loanForm').addEventListener('submit', saveLoan);
     </script>
 </body>
 </html>
